@@ -259,16 +259,26 @@ export default function Queue() {
           const opponent = players.find((p) => p.user_id === result.opponent_id);
 
           // Broadcast immediately so the opponent gets notified
-          await supabase.channel("lobby-events").send({
-            type: "broadcast",
-            event: "match_found",
-            payload: {
-              match_id: result.match_id,
-              mode: "x1",
-              captain_puuid: captain?.riot_puuid,
-              team1: [captain],
-              team2: [opponent],
-            },
+          const broadcastCh = supabase.channel("lobby-events");
+          await new Promise<void>((resolve) => {
+            broadcastCh.subscribe((status) => {
+              if (status === "SUBSCRIBED") {
+                broadcastCh.send({
+                  type: "broadcast",
+                  event: "match_found",
+                  payload: {
+                    match_id: result.match_id,
+                    mode: "x1",
+                    captain_puuid: captain?.riot_puuid,
+                    team1: [captain],
+                    team2: [opponent],
+                  },
+                }).then(() => {
+                  supabase.removeChannel(broadcastCh);
+                  resolve();
+                });
+              }
+            });
           });
         }
 
@@ -334,22 +344,30 @@ export default function Queue() {
       const captainPuuid = (captainProfile as any)?.riot_puuid ?? null;
 
       const lobbyChannel = supabase.channel("lobby-events");
-      await lobbyChannel.send({
-        type: "broadcast",
-        event: "match_found",
-        payload: {
-          match_id: data.match_id,
-          map: data.map,
-          captain_puuid: captainPuuid,
-          server_ip: data.server.ip,
-          server_password: data.server.password,
-          team1_avg_elo: data.team1.avg_elo,
-          team2_avg_elo: data.team2.avg_elo,
-          team1: team1.map(p => ({ id: p.id, nickname: p.nickname })),
-          team2: team2.map(p => ({ id: p.id, nickname: p.nickname })),
-        },
+      await new Promise<void>((resolve) => {
+        lobbyChannel.subscribe((status) => {
+          if (status === "SUBSCRIBED") {
+            lobbyChannel.send({
+              type: "broadcast",
+              event: "match_found",
+              payload: {
+                match_id: data.match_id,
+                map: data.map,
+                captain_puuid: captainPuuid,
+                server_ip: data.server.ip,
+                server_password: data.server.password,
+                team1_avg_elo: data.team1.avg_elo,
+                team2_avg_elo: data.team2.avg_elo,
+                team1: team1.map(p => ({ id: p.id, nickname: p.nickname })),
+                team2: team2.map(p => ({ id: p.id, nickname: p.nickname })),
+              },
+            }).then(() => {
+              supabase.removeChannel(lobbyChannel);
+              resolve();
+            });
+          }
+        });
       });
-      supabase.removeChannel(lobbyChannel);
     } catch (err) {
       console.error("Matchmaking failed:", err);
       matchTriggered.current = false;

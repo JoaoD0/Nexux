@@ -200,22 +200,30 @@ export default function Lobby() {
     // Update match status to 'in_progress'
     await supabase.from("matches").update({ status: "in_progress" }).eq("id", lobbyData.matchId);
 
-    // Broadcast to match-specific channel
+    // Broadcast to match-specific channel (subscribe first to avoid REST fallback)
     const channel = supabase.channel(`match-${lobbyData.matchId}`);
-    await channel.send({
-      type: "broadcast",
-      event: "start_match",
-      payload: {
-        match_id: lobbyData.matchId,
-        map: finalMap,
-        mode: matchRow?.mode,
-        captain_id: captain.id,
-        captain_puuid: captainPuuid,
-        team1: lobbyData.team1.map(p => ({ id: p.id, nickname: p.nickname, team: 1 })),
-        team2: lobbyData.team2.map(p => ({ id: p.id, nickname: p.nickname, team: 2 })),
-      },
+    await new Promise<void>((resolve) => {
+      channel.subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          channel.send({
+            type: "broadcast",
+            event: "start_match",
+            payload: {
+              match_id: lobbyData.matchId,
+              map: finalMap,
+              mode: matchRow?.mode,
+              captain_id: captain.id,
+              captain_puuid: captainPuuid,
+              team1: lobbyData.team1.map(p => ({ id: p.id, nickname: p.nickname, team: 1 })),
+              team2: lobbyData.team2.map(p => ({ id: p.id, nickname: p.nickname, team: 2 })),
+            },
+          }).then(() => {
+            supabase.removeChannel(channel);
+            resolve();
+          });
+        }
+      });
     });
-    supabase.removeChannel(channel);
 
     // Update status to 'starting'
     await supabase.from("matches").update({ status: "starting" }).eq("id", lobbyData.matchId);
@@ -537,8 +545,14 @@ export default function Lobby() {
                   <button
                     onClick={async () => {
                       const ch = supabase.channel(`match-confirm-${lobbyData.matchId}`);
-                      await ch.send({ type: "broadcast", event: "captain_confirmed", payload: {} });
-                      supabase.removeChannel(ch);
+                      await new Promise<void>((resolve) => {
+                        ch.subscribe((status) => {
+                          if (status === "SUBSCRIBED") {
+                            ch.send({ type: "broadcast", event: "captain_confirmed", payload: {} })
+                              .then(() => { supabase.removeChannel(ch); resolve(); });
+                          }
+                        });
+                      });
                       setCaptainConfirmed(true);
                       setCaptainTimeout(null);
                     }}
