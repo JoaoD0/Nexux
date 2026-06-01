@@ -155,6 +155,7 @@ export default function Lobby() {
   const [captainTimeout, setCaptainTimeout] = useState<number | null>(null);
   const [captainConfirmed, setCaptainConfirmed] = useState(false);
   const [lobbyCode, setLobbyCode] = useState<string | null>(null);
+  const [opponentJoined, setOpponentJoined] = useState(false);
 
   const avg1 = getTeamAvgElo(lobbyData.team1);
   const avg2 = getTeamAvgElo(lobbyData.team2);
@@ -282,6 +283,17 @@ export default function Lobby() {
       })
       .on("broadcast", { event: "match_started" }, ({ payload }) => {
         handleCode((payload as any)?.lobby_code);
+      })
+      .on("broadcast", { event: "opponent_joined" }, ({ payload }) => {
+        setOpponentJoined(true);
+        const nick = (payload as any)?.nickname ?? "Oponente";
+        toast({ title: "✅ Oponente entrou no lobby!", description: `${nick} entrou na partida personalizada.` });
+      })
+      .on("broadcast", { event: "match_error" }, ({ payload }) => {
+        const errorMsg = (payload as any)?.message ?? "Erro desconhecido no Nexus Client.";
+        setMatchStarted(false);
+        setCaptainTimeout(null);
+        toast({ title: "❌ Erro no Nexus Client", description: errorMsg, variant: "destructive" });
       })
       .subscribe();
 
@@ -570,9 +582,13 @@ export default function Lobby() {
             )}
 
             {lobbyCode && isCaptain && (
-              <div className="bg-card border border-primary/30 rounded-lg p-4 text-center space-y-1">
-                <p className="text-foreground text-sm font-display font-bold">
-                  Aguardando o oponente entrar no lobby...
+              <div className={`border rounded-lg p-4 text-center space-y-1 transition-colors ${
+                opponentJoined
+                  ? "bg-win/10 border-win/30"
+                  : "bg-card border-primary/30"
+              }`}>
+                <p className={`text-sm font-display font-bold ${opponentJoined ? "text-win" : "text-foreground"}`}>
+                  {opponentJoined ? "✅ Oponente entrou no lobby!" : "Aguardando o oponente entrar no lobby..."}
                 </p>
                 <p className="text-muted-foreground text-xs">
                   Código enviado: <span className="text-win font-bold">{lobbyCode}</span>
