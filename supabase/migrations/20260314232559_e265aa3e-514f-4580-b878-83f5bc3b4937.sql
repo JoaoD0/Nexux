@@ -1,0 +1,2 @@
+ALTER TABLE public.matches DROP CONSTRAINT matches_status_check;
+ALTER TABLE public.matches ADD CONSTRAINT matches_status_check CHECK (status = ANY (ARRAY['lobby'::text, 'banning'::text, 'in_progress'::text, 'finished'::text, 'cancelled'::text]));

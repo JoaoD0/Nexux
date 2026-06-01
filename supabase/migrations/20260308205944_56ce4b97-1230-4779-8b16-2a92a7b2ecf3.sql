@@ -1,0 +1,1 @@
+ALTER TABLE public.profiles ADD COLUMN riot_puuid text DEFAULT NULL;

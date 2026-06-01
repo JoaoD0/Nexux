@@ -1,0 +1,7 @@
+project_id = "galcbklbtdnbodgeptad"
+
+[functions.electron-api]
+verify_jwt = false
+
+[functions.match-x1]
+verify_jwt = false
