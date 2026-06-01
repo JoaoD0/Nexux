@@ -154,7 +154,7 @@ export default function MapBan() {
         },
         (payload) => {
           const newRow = payload.new as { status?: string; final_map?: string };
-          if (newRow?.final_map && newRow.status === "starting") {
+          if (newRow?.final_map && newRow.status === "lobby") {
             console.log("[MapBan] postgres_changes fallback triggered, navigating to lobby");
             setFinalMap(newRow.final_map);
             setTimeout(() => {
@@ -191,7 +191,7 @@ export default function MapBan() {
         .eq("id", matchId)
         .maybeSingle();
 
-      if (match?.final_map && match.status === "starting") {
+      if (match?.final_map && match.status === "lobby") {
         clearInterval(interval);
         console.log("[MapBan] Polling fallback triggered, navigating to lobby");
         setFinalMap(match.final_map);
@@ -292,7 +292,8 @@ export default function MapBan() {
           .update({
             banned_maps: updatedBans.map((b) => b.map_name),
             final_map: finalMapName,
-            status: "starting",
+            map_name: finalMapName,
+            status: "lobby",
           })
           .eq("id", matchId);
 
